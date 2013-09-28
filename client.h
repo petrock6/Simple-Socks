@@ -1,0 +1,2 @@
+#define derp
+ok
