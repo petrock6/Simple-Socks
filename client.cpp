@@ -1,6 +1,5 @@
 
 #include "client.h"
-#include "config.h"
 
 
 
@@ -12,12 +11,7 @@ Client::Client(string lHost, unsigned short lPort, bool lBlocking, bool lTCP) {/
 	isBlocking = lBlocking;
 	isTCP = lTCP;
 
-	/*if(!isTCP) {
-		cout << "UDP unimplemented. Sorry.\n";
-		exit(0);
-	}*/
-
-#ifdef WINDOWS
+#ifdef _WIN32
 	if(!calledWSAClient) { //fuck WSA
 		WSADATA wsd;
 		WSAStartup(0x0101, &wsd);
@@ -38,9 +32,14 @@ bool Client::sconnect() {
 		if(hostEntity == NULL)
 			return false;
 
-
+#ifdef _WIN32
 		sockAddrInfo.sin_addr.S_un.S_addr = *((unsigned long*)hostEntity->h_addr_list[0]); //set socket structure to use dns ip
-		hostIP.compileIPLongToBytes(*((unsigned long*)hostEntity->h_addr_list[0]));		   //set our structure to use this ip as well
+#else
+		sockAddrInfo.sin_addr.s_addr = *((unsigned long*)hostEntity->h_addr_list[0]);
+#endif
+
+		hostIP.compileIPLongToBytes(*((unsigned long*)hostEntity->h_addr_list[0]));
+
 		sockAddrInfo.sin_family = AF_INET;
 		sockAddrInfo.sin_port = htons(port);
 
@@ -58,9 +57,13 @@ bool Client::sconnect() {
 	if(connect(sock, (struct sockaddr*) &sockAddrInfo, sizeof(sockaddr_in)))
 		return false;
 
-
+#ifdef _WIN32
 	if(!isBlocking)
 		ioctlsocket(sock, FIONBIO, &iMode); //put in non-blocking mode
+#else
+	if(!isBlocking)
+		ioctl(sock, FIONBIO, &iMode);
+#endif
 											//i am *pretty* sure this has 0 effect on connect()
 											//untested Linux
 
@@ -68,10 +71,10 @@ bool Client::sconnect() {
 }
 
 void Client::disconnect() {
-#ifdef WINDOWS
+#ifdef _WIN32
 	closesocket(sock);
 #endif
-#ifndef WINDOWS
+#ifndef _WIN32
 	close(sock);
 #endif
 	//isConnected = false;
@@ -126,10 +129,10 @@ unsigned int Client::hrecv(string *recvString) {
 
 Client::~Client() {
 	if(sock != INVALID_SOCKET) {
-#ifdef WINDOWS
+#ifdef _WIN32
 		closesocket(sock);
 #endif
-#ifndef WINDOWS
+#ifndef _WIN32
 		close(sock);
 #endif
 

@@ -1,5 +1,9 @@
 #include "ipfuncs.h"
+
 #include <cstdlib>
+#include <string.h>
+
+#include <stdio.h>
 
 IPAddress::IPAddress() {
 	ipString = "0.0.0.0";
@@ -81,11 +85,17 @@ void IPAddress::compileIPString() { //bytes to string
 	char s3[8];
 	char s4[8];
 
+#ifdef _WIN32
 	itoa( (int) b1, s1, 10);
 	itoa( (int) b2, s2, 10);
 	itoa( (int) b3, s3, 10);
 	itoa( (int) b4, s4, 10);
-
+#else
+	snprintf(s1, sizeof(s1), "%d", b1);
+        snprintf(s2, sizeof(s2), "%d", b2);
+        snprintf(s3, sizeof(s3), "%d", b3);
+        snprintf(s4, sizeof(s4), "%d", b4);
+#endif
 	ipString = s1;
 	ipString += ".";
 	ipString += s2;
@@ -119,8 +129,11 @@ void IPAddress::compileIPBytes() { //string to bytes
 
 	memset(localCopy, 0, sizeof(localCopy));
 	memset(s1, 0, 4); memset(s2, 0, 4); memset(s3, 0, 4); memset(s4, 0, 4); 
-
+#ifdef _WIN32
 	strncpy_s(localCopy, sizeof(localCopy), ipString.c_str(), ipLength);
+#else
+	strncpy(localCopy, ipString.c_str(), ipLength);
+#endif
 
 top:
 	while(i < ipLength) {

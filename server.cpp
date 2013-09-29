@@ -1,5 +1,12 @@
 #include "server.h"
-#include "config.h"
+
+#include <stdlib.h>
+#include <string.h>
+
+#ifndef _WIN32
+#include <pthread.h>
+#include <errno.h>
+#endif
 
 #define SOCKADDR_LENGTH sizeof(struct sockaddr_in)
 
@@ -25,6 +32,7 @@ Server::Server(unsigned short lPort, bool lBlocking, bool lTCP) {//port, blockin
 
 }
 
+#ifdef _WIN32
 static UINT WINAPI ThreadFunc(LPVOID param)
 {
    Server* obj = (Server*)param;
@@ -35,7 +43,17 @@ static UINT WINAPI ThreadFunc(LPVOID param)
                               
    return 0;
 }
+#else
+void * ThreadFunc(void * param) {
+   Server* obj = (Server*)param;
+   if(obj->isTCP)
+           obj->clientHandler(0); // call the member function, to do work in our new thread
+   else
+           obj->UDPClientHandler(0);
 
+   pthread_exit(0);
+}
+#endif
 
 
 void Server::clientHandler(void * useless) {
@@ -50,11 +68,21 @@ void Server::clientHandler(void * useless) {
 
 	while(isServerStopped == false) {
 
-		clientSock = accept(serverSock, (struct sockaddr *) &clientSockAddr, 0);
-		
+#ifdef _WIN32
+		clientSock = accept(serverSock, (struct sockaddr *) &clientSockAddr, 0); //winapi basically cripples *BSD sox
+#else
+		clientSock = accept(serverSock, (struct sockaddr *) &clientSockAddr, (socklen_t *) &addrLength);
+#endif
+
+		cout << "clientSock: " << clientSock << " (INVALID_SOCKET is " << INVALID_SOCKET << "\n";	
+		cout << strerror(errno) << "\n";
+	
 		if(clientSock != INVALID_SOCKET) {
+#ifdef _WIN32
 			ioctlsocket(clientSock, FIONBIO, &iMode); //non-blocking mode
-			//untested Linux
+#else
+			ioctl(clientSock, FIONBIO, &iMode);
+#endif
 
 			/*now we've gotten a client, let's give em a struct*/
 			
@@ -63,9 +91,19 @@ void Server::clientHandler(void * useless) {
 				clientData->index = grabAvailableIndex();
 				//clientData->isConnected = true; //un-necassary: if the client is not connected, they will not be in the list. 
 				clientData->sock = clientSock;
-				
+#ifdef _WIN32
 				getpeername(clientSock, (sockaddr *)&clientSockAddr, &addrLength); /*grab updated client sockaddr_in structure*/
+#else
+				getpeername(clientSock, (sockaddr *)&clientSockAddr, (socklen_t *) &addrLength);
+#endif
+
+#ifdef _WIN32
 				clientData->ip.compileIPLongToBytes(clientSockAddr.sin_addr.S_un.S_addr); //update our IPAddress structure
+#else
+				clientData->ip.compileIPLongToBytes(clientSockAddr.sin_addr.s_addr);
+#endif
+
+
 				clientData->port = htons(clientSockAddr.sin_port); 
 
 
@@ -89,17 +127,16 @@ void Server::UDPClientHandler(void * useless) {
 }
 
 bool Server::startClientHandler() {
-
-#ifdef WINDOWS
+#ifdef _WIN32
 	if(CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) ThreadFunc, (LPVOID)this, NULL, NULL) == NULL) {
 		return false;
 	}
+#else
+	pthread_t threadv;
+	if(pthread_create(&threadv, NULL,  &ThreadFunc, (void *)this) != 0)
+		return false;
+#endif
 	return true;
-#endif
-
-#ifndef WINDOWS
-		//IMPLEMENT PTHREAD
-#endif
 }
 
 void Server::serverTick() {
@@ -125,7 +162,11 @@ unsigned int Server::connectedClients() {
 
 bool Server::startServer() {
 	sockAddrInfo.sin_family = AF_INET;
+#ifdef _WIN32
 	sockAddrInfo.sin_addr.S_un.S_addr = INADDR_ANY;
+#else
+	sockAddrInfo.sin_addr.s_addr = INADDR_ANY;
+#endif
 	sockAddrInfo.sin_port = htons(port);
 
 	if(isTCP)
@@ -337,14 +378,12 @@ unsigned int Server::hrecv(char * recvBuff, unsigned int recvLength) {
 	else {
 		int sockaddrLength = SOCKADDR_LENGTH;
 		
+#ifdef _WIN32
 		ret = recvfrom(serverSock, recvBuff, recvLength, 0, (sockaddr *) &sockAddrInfo, &sockaddrLength);
 		//serverSock, not sock!
-		
-		/*
-		IPAddress ip;
-		ip.compileIPLongToBytes(sockAddrInfo.sin_addr.S_un.S_addr);
-		ip.compileIPString();
-		cout << "IP: " << ip.ipString << "\n";*/
+#else
+		ret = recvfrom(serverSock, recvBuff, recvLength, 0, (sockaddr *) &sockAddrInfo, (socklen_t *)&sockaddrLength);
+#endif
 	}
 
 	if(ret >= 1)

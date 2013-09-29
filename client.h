@@ -1,11 +1,14 @@
 #ifndef CLIENT_INCLUDE
 #define CLIENT_INCLUDE
 
-#include "config.h"
-
 #include "ipfuncs.h"
 
-#ifdef WINDOWS
+#include <string.h>
+#include <string>
+
+using namespace std;
+
+#ifdef _WIN32
 
 #include <WinSock.h>
 #include <Windows.h>
@@ -18,8 +21,19 @@ Prokect Properties->Linker->General
 If this becomes a constant problem... http://msdn.microsoft.com/en-us/library/72zdcz6f%28VS.80%29.aspx
 */
 bool calledWSAClient = false;
-#endif
+#else
 
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <netinet/in.h>
+//#include <netinet6/in6.h>
+#include <arpa/inet.h>
+#include <ifaddrs.h>
+#include <netdb.h>
+
+#define INVALID_SOCKET -1
+typedef int SOCKET;
+#endif
 
 class Client {
 	struct hostent * hostEntity;

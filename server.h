@@ -1,12 +1,11 @@
 #ifndef SERVER_INCLUDE
 #define SERVER_INCLUDE
 
-#include "config.h"
 #include "ipfuncs.h"
 
 #include <vector>
 
-#ifdef WINDOWS
+#ifdef _WIN32
 
 #include <WinSock.h>
 #include <Windows.h>
@@ -19,6 +18,20 @@ Prokect Properties->Linker->General
 If this becomes a constant problem... http://msdn.microsoft.com/en-us/library/72zdcz6f%28VS.80%29.aspx
 */
 bool calledWSA = false;
+
+#else
+
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <netinet/in.h>
+//#include <netinet6/in6.h>
+#include <arpa/inet.h>
+#include <ifaddrs.h>
+#include <netdb.h>
+
+#define INVALID_SOCKET -1
+#define SOCKET_ERROR -1
+typedef int SOCKET;
 
 #endif
 

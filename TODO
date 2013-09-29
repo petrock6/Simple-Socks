@@ -1,0 +1,4 @@
+Singlethreaded server:
+	As it stands, the server currently uses a really, really cheesy mechanism to instantiate between clients. You can potentially have a 200ms lag on responses, depending on your position in the server index and other timing variables.
+
+	I believe the fix to this would be to switch between blocking and nonblocking sockets, interchangebly. However, I am certain there is a better sol'n.
